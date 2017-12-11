@@ -150,6 +150,10 @@ namespace evgb{
     double                   fGlobalTimeOffset;  ///< overall time shift (ns) added to every particle time
     double                   fRandomTimeOffset;  ///< additional random time shift (ns) added to every particle time 
     std::vector<int>         fGenFlavors;        ///< pdg codes for flavors to generate
+    double                   fDMMass;            ///< EDIT: add DM mass parameter
+    double                   fMedRatio;          ///< EDIT: add mediator mass ratio parameter
+    double                   fZpCoupling;            ///< EDIT: add DM coup parameter
+    bool                     fDMMode;             ///< EDIT: add a boolean to track if DM mode
     double                   fAtmoEmin;          ///< atmo: Minimum energy of neutrinos in GeV
     double                   fAtmoEmax;          ///< atmo: Maximum energy of neutrinos in GeV
     double                   fAtmoRl;            ///< atmo: radius of the sphere on where the neutrinos are generated

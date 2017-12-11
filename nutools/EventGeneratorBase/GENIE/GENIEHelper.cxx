@@ -77,6 +77,8 @@
 #include "Interaction/ProcessInfo.h"
 #include "Interaction/XclsTag.h"
 #include "GHEP/GHepParticle.h"
+// EDIT: Need to include PDG library to add DM particle
+#include "PDG/PDGLibrary.h"
 #include "PDG/PDGCodeList.h"
 
 // assumes in GENIE
@@ -163,6 +165,9 @@ namespace evgb {
     , fGlobalTimeOffset  (pset.get< double                   >("GlobalTimeOffset", 1.e4) )
     , fRandomTimeOffset  (pset.get< double                   >("RandomTimeOffset", 1.e4) )
     , fGenFlavors        (pset.get< std::vector<int>         >("GenFlavors")             )
+    , fDMMass            (pset.get< double                   >("DMMass",             0.) )
+    , fMedRatio          (pset.get< double                   >("MedRatio",           0.) )
+    , fZpCoupling        (pset.get< double                   >("ZpCoupling",         0.) )
     , fAtmoEmin          (pset.get< double                   >("AtmoEmin",          0.1) )
     , fAtmoEmax          (pset.get< double                   >("AtmoEmax",         10.0) )
     , fAtmoRl            (pset.get< double                   >("Rl",               20.0) )
@@ -180,7 +185,20 @@ namespace evgb {
     , fGeomScan          (pset.get< std::string              >("GeomScan",    "default") )
     , fDebugFlags        (pset.get< unsigned int             >("DebugFlags",          0) ) 
   {
-
+    
+    // EDIT: before anything, check if we're doing a DM run
+    // If so, add the DM, mediator, and coupling to GENIE
+    fDMMode = ( fEventGeneratorList.find( "DM" ) != std::string::npos );
+    if (fDMMode) {
+      genie::PDGLibrary::Instance()->AddDarkMatter(fDMMass,fMedRatio);
+      RunOpt::Instance()->SetZpCoupling(fZpCoupling);
+      // If we are doing a DM run, make sure the flux is mono
+      if (fFluxType.compare("mono") != 0) {
+        throw cet::exception("InvalidFlux")
+          << "only mono flux allowed for DM run";
+      }
+    }
+    
     std::vector<double> beamCenter   (pset.get< std::vector<double> >("BeamCenter")   );
     std::vector<double> beamDirection(pset.get< std::vector<double> >("BeamDirection"));
     fBeamCenter.SetXYZ(beamCenter[0], beamCenter[1], beamCenter[2]);
@@ -360,10 +378,21 @@ namespace evgb {
 
     if(fFluxType.compare("mono")==0 || fFluxType.compare("function")==0){
       fEventsPerSpill = 1;
-      mf::LogInfo("GENIEHelper") 
-        << "Generating monoenergetic (" << fMonoEnergy 
-        << " GeV) neutrinos with the following flavors: " 
-        << flvlist;
+      // EDIT: Don't try to print DM flavors
+      if (fDMMode) {
+	mf::LogInfo("GENIEHelper")
+	  << "Generating monoenergetic DM with energy " << fMonoEnergy
+	  << " GeV and the following parameters\n"
+	  << "DM Mass - " << fDMMass << " GeV\n"
+	  << "Med Mass Ratio - " << fMedRatio << "\n"
+	  << "Coupling - " << fZpCoupling;
+      }
+      else {
+	mf::LogInfo("GENIEHelper") 
+	  << "Generating monoenergetic (" << fMonoEnergy 
+	  << " GeV) neutrinos with the following flavors: " 
+	  << flvlist;
+      }
     }
     else{
 
@@ -946,12 +975,18 @@ namespace evgb {
     } //end if using a histogram
     else if(fFluxType.compare("mono") == 0){
 
-      // weight each species equally in the generation
+      // weight each species equally in the generation      
       double weight = 1./(1.*fGenFlavors.size());
       //make a map of pdg to weight codes
       std::map<int, double> pdgwmap;
       for ( std::vector<int>::iterator i = fGenFlavors.begin(); i != fGenFlavors.end(); i++ )
         pdgwmap[*i] = weight;
+
+      // EDIT: No weight for DM mode
+      if (fDMMode) {
+	weight = 1.;
+	pdgwmap[9000001] = 1.;
+      }
 
       genie::flux::GMonoEnergeticFlux *monoflux = new genie::flux::GMonoEnergeticFlux(fMonoEnergy, pdgwmap);
       monoflux->SetDirectionCos(fBeamDirection.X(), fBeamDirection.Y(), fBeamDirection.Z());
